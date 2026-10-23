@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>tte 5: Master Sandbox Engine</title>
+    <title>tte 5: Absolute Master Sandbox</title>
     <style>
         body {
             margin: 0;
             overflow: hidden;
-            background-color: #020208;
+            background-color: #03030b;
             font-family: 'Segoe UI', -apple-system, sans-serif;
             user-select: none;
         }
@@ -24,28 +24,30 @@
             box-shadow: 0 10px 30px rgba(0,0,0,0.8);
             pointer-events: none;
             z-index: 10;
+            width: 220px;
         }
         .stat {
-            font-size: 14px;
+            font-size: 13px;
             text-transform: uppercase;
             letter-spacing: 1px;
             margin-bottom: 6px;
         }
-        #health-bar-container {
+        #stars { color: #ff3333; font-weight: bold; letter-spacing: 2px; }
+        #health-container {
             width: 100%;
-            height: 10px;
             background: #441111;
-            border-radius: 3px;
-            margin-bottom: 8px;
+            height: 12px;
+            border-radius: 6px;
             overflow: hidden;
+            border: 1px solid #555;
+            margin-top: 4px;
         }
         #health-bar {
             width: 100%;
+            background: #00ff66;
             height: 100%;
-            background: #ff3333;
-            transition: width 0.1s ease;
+            transition: width 0.1s;
         }
-        #stars { color: #ff3333; font-weight: bold; }
         #crosshair {
             position: absolute;
             top: 50%;
@@ -70,6 +72,7 @@
             font-weight: bold;
             display: none;
             z-index: 10;
+            box-shadow: 0 0 20px rgba(255,204,0,0.4);
         }
         #canvas3d {
             display: block;
@@ -82,7 +85,7 @@
             left: 25px;
             width: 160px;
             height: 160px;
-            background: rgba(15, 15, 25, 0.85);
+            background: rgba(15, 15, 25, 0.9);
             border: 3px solid #ffcc00;
             border-radius: 50%; 
             box-shadow: 0 10px 25px rgba(0,0,0,0.9);
@@ -100,37 +103,66 @@
             z-index: 10;
             pointer-events: none;
             border: 1px solid #333;
-            line-height: 1.5;
+            line-height: 1.6;
+        }
+        #wasted-screen {
+            position: absolute;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(150, 0, 0, 0.4);
+            backdrop-filter: blur(5px);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            color: #fff;
+            font-size: 70px;
+            font-weight: 900;
+            letter-spacing: 10px;
+            text-shadow: 0 0 30px #000;
+            z-index: 100;
+            font-family: 'Georgia', serif;
+            font-style: italic;
         }
     </style>
 </head>
 <body>
 
     <div id="ui-layer">
-        <div class="stat">❤️ Integrity (Health)</div>
-        <div id="health-bar-container"><div id="health-bar"></div></div>
         <div class="stat">📍 Area: <span id="region">VIC SECTOR</span></div>
-        <div class="stat">💰 Cash Assets: $<span id="cash">500</span></div>
+        <div class="stat">💰 Cash: $<span id="cash">500</span></div>
         <div class="stat">⭐ Wanted: <span id="stars">Clear</span></div>
         <div class="stat">🚶 State: <span id="state">On Foot</span></div>
+        <div class="stat" style="margin-top: 8px;">❤️ Integrity Vitality:</div>
+        <div id="health-container"><div id="health-bar"></div></div>
     </div>
 
     <div id="crosshair"></div>
     <div id="action-prompt">PRESS [E] TO INTERACT</div>
+    <div id="wasted-screen">WASTED</div>
     
     <div id="hud-helper">
-        🎮 <strong>tte 5: Master Sandbox Engine Manual</strong><br>
-        • [F] Enter / Exit vehicles when close<br>
-        • [E] Enter 70% Building Rooms / Collect Hidden $500 Money Bags<br>
-        • 🏍️ <strong>Motorbike:</strong> Hold [Shift] to pull a controllable wheelie!<br>
-        • 🚁 <strong>Helicopter:</strong> Hold [Space] to Fly Up | [Ctrl] to Fly Down<br>
-        • 🚨 Committing actions spawns armed tactical response patrols!
+        🏎️ <strong>tte 5 Master Controls Manual:</strong><br>
+        • [F] Enter / Exit close vehicles on foot<br>
+        • [E] Rob entries / Enter accessible neon structures<br>
+        • 🏍️ <strong>Dirt Bike:</strong> Hold [Shift] while driving to ride a wheelie!<br>
+        • 🚁 <strong>Helicopter:</strong> [Space] to Fly Up | [Ctrl] to Fly Down<br>
+        • 🚨 <strong>Cops:</strong> Getting wanted stars spawns police shooters!
     </div>
 
     <canvas id="canvas3d"></canvas>
     <canvas id="minimap" width="160" height="160"></canvas>
 
-    <script>
+    <!-- Configure explicit browser module map dependencies safely -->
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://jsdelivr.net"
+        }
+      }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+
         const canvas = document.getElementById("canvas3d");
         const ctx = canvas.getContext("2d");
         const mCanvas = document.getElementById("minimap");
@@ -143,128 +175,358 @@
         window.addEventListener('resize', resize);
         resize();
 
-        // --- GAME CORE STATES ---
-        let cash = 500, wantedStars = 0, health = 100, activeTarget = null;
+        // --- MASTER SYSTEMS POOL SETUP ---
+        let cash = 500, wantedStars = 0, activeTarget = null, health = 100, isWasted = false;
         let activeVehicle = null; 
-        let player = { x: 0, y: 0, z: 20, angle: 0, speed: 1.2 };
+        let player = { x: 40, y: 0, z: 135, angle: 0, speed: 1.3 };
         
         let vehicles = [
-            { id: "car", type: "Car", name: "Holden GTS", x: -25, y: 0, z: 30, speed: 0, maxSpeed: 3.5, accel: 0.08, decel: 0.04, angle: 0, turn: 0.045, color: "#d32f2f", w: 4.5, h: 1.5, d: 8.5 },
-            { id: "bike", type: "Motorbike", name: "Aussie Dirt Bike", x: 25, y: 0, z: 30, speed: 0, maxSpeed: 3.8, accel: 0.12, decel: 0.05, angle: 0, turn: 0.055, color: "#ffcc00", w: 1.5, h: 2.0, d: 5.5, wheeliePitch: 0 },
-            { id: "chopper", type: "Helicopter", name: "PolAir Chopper", x: 0, y: 0, z: -50, speed: 0, maxSpeed: 4.0, accel: 0.06, decel: 0.02, angle: 0, turn: 0.035, color: "#1a237e", w: 5.0, h: 4.0, d: 12.0, rotorAngle: 0 },
-            { id: "boat", type: "Boat", name: "Coast Patrol Boat", x: 125, y: -0.2, z: 40, speed: 0, maxSpeed: 3.2, accel: 0.05, decel: 0.02, angle: 0, turn: 0.030, color: "#ffffff", w: 5.5, h: 1.8, d: 11.0 }
+            { id: "car", type: "Car", name: "Holden GTS", x: -20, y: 0, z: 30, speed: 0, maxSpeed: 3.6, accel: 0.08, decel: 0.04, angle: 0, turn: 0.045, color: "#d32f2f", w: 4.5, h: 1.5, d: 8.5 },
+            { id: "bike", type: "Motorbike", name: "Aussie Dirt Bike", x: 20, y: 0, z: 30, speed: 0, maxSpeed: 3.9, accel: 0.12, decel: 0.05, angle: 0, turn: 0.055, color: "#ff7700", w: 1.5, h: 2.0, d: 5.5, wheeliePitch: 0 },
+            { id: "chopper", type: "Helicopter", name: "PolAir Chopper", x: -40, y: 0, z: -20, speed: 0, maxSpeed: 4.2, accel: 0.06, decel: 0.02, angle: 0, turn: 0.035, color: "#1a237e", w: 5.0, h: 3.8, d: 12.0, rotorAngle: 0 },
+            { id: "boat", type: "Boat", name: "Coastal Jet Boat", x: 130, y: -0.2, z: 20, speed: 0, maxSpeed: 3.4, accel: 0.05, decel: 0.02, angle: 0, turn: 0.030, color: "#00e5ff", w: 5.5, h: 1.6, d: 11.0 }
         ];
 
-        let cops = []; // Active tactical police entities
+        let policeUnits = [];
+        let policeBullets = [];
         let cityBuildings = [];
-        const hospitalLocation = { name: "Melbourne General Hospital", color: "#ffffff", glow: "#ff3333", x: 40, z: 120, enterable: true, hasBag: false };
+        const hospitalLocation = { name: "Melbourne General Hospital", color: "#ffffff", glow: "#ff1744", x: 40, z: 120, enterable: true, hasBag: false };
 
-        // --- PROCEDURAL ARCHITECTURE SEED ENGINES ---
+        let camAngleX = 0, camAngleY = 0.4;
+        const keys = {};
+
+        // --- PROCEDURAL ARCHITECTURE ENGINE ---
         function generateCityGrid() {
             cityBuildings = [];
-            cityBuildings.push(hospitalLocation);
+            cityBuildings.push(hospitalLocation); 
 
-            // Populate 24 distinct infrastructure grid sections across QLD and VIC
             for (let i = 0; i < 24; i++) {
-                let x = ((i % 5) - 2) * 55;
-                let z = (Math.floor(i / 5) - 2) * 60;
-                if (Math.abs(x - 40) < 25 && Math.abs(z - 120) < 25) continue; // Boundary clip buffer around medical zones
+                let x = ((i % 5) - 2) * 65;
+                let z = (Math.floor(i / 5) - 2) * 65;
+                if (Math.abs(x - 40) < 30 && Math.abs(z - 120) < 30) continue; 
 
-                let isEnterable = Math.random() < 0.70; // 70% accessibility index matrix constraint
+                let isEnterable = (i % 3 !== 0); 
 
                 cityBuildings.push({
-                    name: isEnterable ? `City Complex Block #${100 + i} (Accessible)` : `Skyscraper Structure #${100 + i}`,
-                    color: isEnterable ? "#2c3e50" : "#1a1a24",
-                    glow: isEnterable ? "#3498db" : "#2c3e50",
+                    name: isEnterable ? `City Commercial Complex #${200 + i}` : `Scenery Tower Block #${200 + i}`,
+                    color: isEnterable ? "#1f2d3d" : "#111116",
+                    glow: isEnterable ? "#00ff66" : "#1f2d3d",
                     x: x, z: z,
                     enterable: isEnterable,
                     hasBag: false
                 });
             }
-            randomiseMoneyBags();
+            shuffleBags();
         }
 
-        function randomiseMoneyBags() {
+        function shuffleBags() {
             cityBuildings.forEach(b => b.hasBag = false);
-            let enterableRooms = cityBuildings.filter(b => b.enterable && b !== hospitalLocation);
-            let bagsToHide = Math.min(8, enterableRooms.length);
-            for (let i = 0; i < bagsToHide; i++) {
-                let randIdx = Math.floor(Math.random() * enterableRooms.length);
-                enterableRooms[randIdx].hasBag = true;
+            let enterablePool = cityBuildings.filter(b => b.enterable && b !== hospitalLocation);
+            for (let i = 0; i < 6; i++) {
+                if (enterablePool.length === 0) break;
+                let randIdx = Math.floor(Math.random() * enterablePool.length);
+                enterablePool[randIdx].hasBag = true;
+                enterablePool.splice(randIdx, 1);
             }
         }
 
         function triggerHospitalRespawn() {
-            alert("💥 WASTED! Your health hit zero. You have been treated and revived at Melbourne General Hospital...");
-            activeVehicle = null;
+            isWasted = true;
+            document.getElementById("wasted-screen").style.display = "flex";
             
-            // Relocate position nodes back to hospital access doors
-            player.x = hospitalLocation.x;
-            player.y = 0;
-            player.z = hospitalLocation.z + 14;
-            player.angle = 0;
-            
-            health = 100;
-            wantedStars = 0;
-            cops = []; // Evaporate tracking units on respawn
-
-            randomiseMoneyBags(); // Shuffle financial items
-        }
-
-        function spawnCopPatrol() {
-            let spawnAngle = Math.random() * Math.PI * 2;
-            let spawnDist = 80;
-            cops.push({
-                x: player.x + Math.sin(spawnAngle) * spawnDist,
-                z: player.z + Math.cos(spawnAngle) * spawnDist,
-                speed: 0.9,
-                fireCooldown: 0
-            });
+            setTimeout(() => {
+                document.getElementById("wasted-screen").style.display = "none";
+                isWasted = false;
+                health = 100;
+                wantedStars = 0;
+                activeVehicle = null;
+                policeUnits = [];
+                policeBullets = [];
+                
+                player.x = hospitalLocation.x;
+                player.y = 0;
+                player.z = hospitalLocation.z + 15;
+                player.angle = 0;
+                
+                shuffleBags();
+            }, 3000);
         }
 
         generateCityGrid();
 
-        let camAngleX = 0, camAngleY = 0.4;
-        const keys = {};
-
-        // --- KEYBOARD & MOUSE EVENT INTERFACE LOOPS ---
+        // --- INPUT TRACKERS ---
         window.addEventListener('keydown', e => {
+            if (isWasted) return;
             keys[e.key.toLowerCase()] = true;
             
             if (e.key.toLowerCase() === 'e' && activeTarget) {
                 if (activeTarget.enterable) {
                     if (activeTarget.hasBag) {
-                        cash += 500; activeTarget.hasBag = false;
-                        alert(`💼 LOOT SECURED! You swept the interior of ${activeTarget.name} and recovered a hidden cash bag worth $500!`);
-                    } else {
-                        alert(`Inside Interior: ${activeTarget.name}.\nRooms are clear. No hidden assets found inside this wing.`);
-                    }
-                }
-            }
-
-            if (e.key.toLowerCase() === 'f') {
-                if (activeVehicle) {
-                    player.x = activeVehicle.x - activeVehicle.w * 1.5; player.y = 0; player.z = activeVehicle.z; player.angle = activeVehicle.angle;
-                    activeVehicle.speed = 0; activeVehicle = null;
-                } else {
-                    vehicles.forEach(v => {
-                        let d = Math.sqrt(Math.pow(player.x - v.x, 2) + Math.pow(player.z - v.z, 2));
-                        if (d < 10 && Math.abs(player.y - v.y) < 6) activeVehicle = v;
-                    });
-                }
-            }
-        });
+                        cash += 500;
+                        activeTarget.hasBag = false;
+                        alert(`💼 LOOT! You checked the rooms of ${activeTarget.name} and secured a hidden $500 cash bundle!`);
+                    } else {let choice = prompt(Interior Zone: ${activeTarget.name}.\nRooms are clear. Ready to stage a register robbery?\nType 'ROB' to hold it up for extra cash! (+1 Wanted Star));
+if (choice && choice.toUpperCase() === 'ROB') {
+cash += 300;
+wantedStars = Math.min(5, wantedStars + 1);
+}
+}
+}
+}
+if (e.key.toLowerCase() === 'f') {
+if (activeVehicle) {
+player.x = activeVehicle.x - activeVehicle.w * 1.5; player.y = 0; player.z = activeVehicle.z; player.angle = activeVehicle.angle;
+activeVehicle.speed = 0; activeVehicle = null;
+} else {
+vehicles.forEach(v => {
+let d = Math.sqrt(Math.pow(player.x - v.x, 2) + Math.pow(player.z - v.z, 2));
+if (d < 10 && Math.abs(player.y - v.y) < 5) activeVehicle = v;
+});
+}
+}
+});
 window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
 window.addEventListener('mousemove', e => {
-if (document.pointerLockElement === document.body) {
+if (document.pointerLockElement === document.body && !isWasted) {
 camAngleX -= e.movementX * 0.005;
 camAngleY = Math.max(0.05, Math.min(1.2, camAngleY - e.movementY * 0.005));
 }
 });
-window.addEventListener('click', () => {
-document.body.requestPointerLock();
-if (wantedStars === 0) {
-wantedStars = 1; // Discharging weapons sets a wanted tracking flag immediately
-alert("🚨 WEAPON DISCHARGED! Local police alerts active (+1 Wanted Star).");
+window.addEventListener('click', () => { if (!isWasted) document.body.requestPointerLock(); });
+// --- GRAPHICS VERTEX UTILITIES ---
+function makeCubeVertices(w, h, d, offsetX, offsetY, offsetZ) {
+let x = offsetX, y = offsetY, z = offsetZ;
+return [
+{x: x-w/2, y: y-h/2, z: z-d/2}, {x: x+w/2, y: y-h/2, z: z-d/2},
+{x: x+w/2, y: y+h/2, z: z-d/2}, {x: x-w/2, y: y+h/2, z: z-d/2},
+{x: x-w/2, y: y-h/2, z: z+d/2}, {x: x+w/2, y: y-h/2, z: z+d/2},
+{x: x+w/2, y: y+h/2, z: z+d/2}, {x: x-w/2, y: y+h/2, z: z+d/2}
+];
+}
+const faceIndexes = [
+[0, 1, 2, 3], [4, 5, 6, 7], [0, 1, 5, 4],
+[2, 3, 7, 6], [0, 3, 7, 4], [1, 2, 6, 5]
+];
+// --- HUD OVERLAY MAP GENERATOR ---
+function drawMinimap() {
+mCtx.clearRect(0, 0, mCanvas.width, mCanvas.height);
+let cx = mCanvas.width / 2, cz = mCanvas.height / 2, scale = 0.32;
+let trackX = activeVehicle ? activeVehicle.x : player.x;
+let trackZ = activeVehicle ? activeVehicle.z : player.z;
+let trackAngle = activeVehicle ? activeVehicle.angle : player.angle;
+mCtx.fillStyle = "rgba(0,120,255,0.15)";
+mCtx.fillRect(cx + (110 - trackX)*scale, 0, mCanvas.width, mCanvas.height);
+cityBuildings.forEach(b => {
+mCtx.fillStyle = b.enterable ? (b.hasBag ? "#ffcc00" : "#00ff66") : "#33333e";
+if (b === hospitalLocation) mCtx.fillStyle = "#ff1744";
+mCtx.fillRect(cx + (b.x - trackX)*scale - 3, cz + (b.z - trackZ)*scale - 3, 6, 6);
+});
+vehicles.forEach(v => {
+if (v !== activeVehicle) {
+mCtx.fillStyle = "#ffffff";
+mCtx.fillRect(cx + (v.x - trackX)*scale - 2, cz + (v.z - trackZ)*scale - 2, 4, 4);
 }
 });
+policeUnits.forEach(p => {
+mCtx.fillStyle = "#ff0000";
+mCtx.beginPath(); mCtx.arc(cx + (p.x - trackX)*scale, cz + (p.z - trackZ)scale, 3, 0, Math.PI2); mCtx.fill();
+});
+mCtx.save(); mCtx.translate(cx, cz); mCtx.rotate(trackAngle);
+mCtx.fillStyle = activeVehicle ? "#ffcc00" : "#00bbff";
+mCtx.beginPath(); mCtx.moveTo(0, -7); mCtx.lineTo(-5, 5); mCtx.lineTo(0, 1); mCtx.lineTo(5, 5);
+mCtx.closePath(); mCtx.fill(); mCtx.restore();
+mCtx.strokeStyle = "#ffcc00"; mCtx.lineWidth = 3; mCtx.beginPath();
+mCtx.arc(cx, cz, (mCanvas.width/2) - 2, 0, Math.PI*2); mCtx.stroke();
+}
+// --- MAIN CALCULATION ENGINE LOOPS ---
+function frame() {
+requestAnimationFrame(frame);
+if (isWasted) return;
+// Update physics loop
+if (activeVehicle) {
+if (keys['w'] || keys['arrowup']) activeVehicle.speed = Math.min(activeVehicle.maxSpeed, activeVehicle.speed + activeVehicle.accel);
+else if (keys['s'] || keys['arrowdown']) activeVehicle.speed = Math.max(-activeVehicle.maxSpeed/2, activeVehicle.speed - activeVehicle.accel);
+else {
+if (activeVehicle.speed > 0) activeVehicle.speed = Math.max(0, activeVehicle.speed - activeVehicle.decel);
+if (activeVehicle.speed < 0) activeVehicle.speed = Math.min(0, activeVehicle.speed + activeVehicle.decel);
+}
+if (keys['a'] || keys['arrowleft']) activeVehicle.angle += activeVehicle.turn * (activeVehicle.speed >= 0 ? 1 : -1);
+if (keys['d'] || keys['arrowright']) activeVehicle.angle -= activeVehicle.turn * (activeVehicle.speed >= 0 ? 1 : -1);
+if (activeVehicle.id === "bike") {
+if (keys['shift'] && activeVehicle.speed > 0.5) activeVehicle.wheeliePitch = Math.min(0.48, activeVehicle.wheeliePitch + 0.06);
+else activeVehicle.wheeliePitch = Math.max(0, activeVehicle.wheeliePitch - 0.06);
+}
+if (activeVehicle.id === "chopper") {
+if (keys[' ']) activeVehicle.y += 0.4;
+if (keys['control']) activeVehicle.y = Math.max(0, activeVehicle.y - 0.4);
+activeVehicle.rotorAngle += 0.45;
+}
+activeVehicle.x += Math.sin(activeVehicle.angle) * activeVehicle.speed;
+activeVehicle.z += Math.cos(activeVehicle.angle) * activeVehicle.speed;
+player.x = activeVehicle.x; player.y = activeVehicle.y; player.z = activeVehicle.z; player.angle = activeVehicle.angle;
+} else {
+let moveX = 0, moveZ = 0;
+if (keys['w'] || keys['arrowup']) { moveX += Math.sin(camAngleX); moveZ += Math.cos(camAngleX); player.angle = camAngleX; }
+if (keys['s'] || keys['arrowdown']) { moveX -= Math.sin(camAngleX); moveZ -= Math.cos(camAngleX); player.angle = camAngleX + Math.PI; }
+if (keys['a'] || keys['arrowleft']) { moveX += Math.cos(camAngleX); moveZ -= Math.sin(camAngleX); player.angle = camAngleX + Math.PI/2; }
+if (keys['d'] || keys['arrowright']) { moveX -= Math.cos(camAngleX); moveZ += Math.sin(camAngleX); player.angle = camAngleX - Math.PI/2; }
+if (moveX !== 0 || moveZ !== 0) {
+let len = Math.sqrt(moveXmoveX + moveZmoveZ);
+player.x += (moveX / len) * player.speed;
+player.z += (moveZ / len) * player.speed;
+}
+}
+// Spawn cop bots loops
+if (wantedStars > 0 && policeUnits.length < wantedStars) {
+policeUnits.push({ x: player.x + (Math.random() - 0.5) * 80, z: player.z + (Math.random() - 0.5) * 80, fireCooldown: 0 });
+} else if (wantedStars === 0) {
+policeUnits = [];
+}
+policeUnits.forEach(p => {
+let dx = player.x - p.x; let dz = player.z - p.z; let dist = Math.sqrt(dxdx + dzdz);
+if (dist > 15) { p.x += (dx / dist) * 0.5; p.z += (dz / dist) * 0.5; }
+p.fireCooldown--;
+if (p.fireCooldown <= 0 && dist < 100) {
+policeBullets.push({ x: p.x, y: 1.5, z: p.z, vx: (dx / dist) * 2.5, vz: (dz / dist) * 2.5, life: 40 });
+p.fireCooldown = 60 + Math.random() * 40;
+}
+});
+for (let i = policeBullets.length - 1; i >= 0; i--) {
+let b = policeBullets[i]; b.x += b.vx; b.z += b.vz; b.life--;
+let distToPlayer = Math.sqrt(Math.pow(player.x - b.x, 2) + Math.pow(player.z - b.z, 2));
+if (distToPlayer < 4 && Math.abs(player.y - b.y) < 4) {
+health = Math.max(0, health - 15);
+policeBullets.splice(i, 1);
+if (health <= 0) { triggerHospitalRespawn(); return; }
+continue;
+}
+if (b.life <= 0) policeBullets.splice(i, 1);
+}
+let camDistance = activeVehicle ? (activeVehicle.id === "chopper" ? 42 : 26) : 15;
+let camX = player.x + Math.sin(camAngleX) * camDistance;
+let camY = player.y + camAngleY * (activeVehicle ? 18 : 12) + 2;
+let camZ = player.z + Math.cos(camAngleX) * camDistance;
+ctx.fillStyle = "#02020c"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+function project(v) {
+let dx = v.x - camX, dy = v.y - camY, dz = v.z - camZ;
+let cosX = Math.cos(-camAngleX), sinX = Math.sin(-camAngleX);
+let rx = dx * cosX - dz * sinX, rz = dx * sinX + dz * cosX;
+if (rz <= 0.1) return null;
+let fov = canvas.width * 0.85;
+return { x: (rx * fov) / rz + canvas.width / 2, y: -(dy * fov) / rz + canvas.height / 2, depth: rz };
+}
+let queue = [];
+// Draw Base Terrain Lines Grid Map
+let segs = 20, maxRange = 400;
+for(let i=0; i<=segs; i++) {
+let f = (i / segs) - 0.5, pos = f * maxRange;
+let p1 = project({x: -maxRange/2, y: 0, z: pos}), p2 = project({x: maxRange/2, y: 0, z: pos});
+if(p1 && p2) {
+let col = pos < 0 ? 'rgba(56,142,60,0.2)' : (pos > 110 ? 'rgba(0,150,255,0.3)' : 'rgba(110,110,120,0.18)');
+queue.push({ depth: (p1.depth + p2.depth)/2, type: 'line', color: col, width: pos === 0 ? 4 : 1, p1: p1, p2: p2 });
+}
+}
+// Draw Buildings
+cityBuildings.forEach(b => {
+let verts = makeCubeVertices(22, 24, 22, b.x, 12, b.z);
+faceIndexes.forEach((f, idx) => {
+let pVerts = f.map(vIdx => project(verts[vIdx]));
+if (pVerts.every(pv => pv !== null)) {
+queue.push({ depth: pVerts.reduce((acc, pv) => acc + pv.depth, 0) / 4, type: 'face', color: idx === 1 ? (b.hasBag ? "#ffcc00" : b.glow) : b.color, points: pVerts });
+}
+});
+});
+// Draw Player Character avatar block
+if (!activeVehicle) {
+let pVerts = makeCubeVertices(1.8, 3.6, 1.8, player.x, 1.8, player.z);
+faceIndexes.forEach(f => {
+let pVertsProj = f.map(vIdx => project(pVerts[vIdx]));
+if (pVertsProj.every(pv => pv !== null)) {
+queue.push({ depth: pVertsProj.reduce((acc, pv) => acc + pv.depth, 0) / 4, type: 'face', color: '#00bbff', points: pVertsProj });
+}
+});
+}
+// Draw Vehicles Pool
+vehicles.forEach(v => {
+let vVerts = makeCubeVertices(v.w, v.h, v.d, v.x, v.y + v.h/2, v.z);
+vVerts.forEach(vert => {
+let rx = vert.x - v.x; let ry = vert.y - (v.y + v.h/2); let rz = vert.z - v.z;
+if (v.id === "bike" && v.wheeliePitch > 0) {
+let cP = Math.cos(v.wheeliePitch), sP = Math.sin(v.wheeliePitch);
+let ty = ry * cP - rz * sP; let tz = ry * sP + rz * cP;
+ry = ty; rz = tz;
+}
+vert.x = v.x + rx * Math.cos(v.angle) - rz * Math.sin(v.angle);
+vert.y = (v.y + v.h/2) + ry;
+vert.z = v.z + rx * Math.sin(v.angle) + rz * Math.cos(v.angle);
+});
+faceIndexes.forEach(f => {
+let pVertsProj = f.map(vIdx => project(vVerts[vIdx]));
+if (pVertsProj.every(pv => pv !== null)) {
+queue.push({ depth: pVertsProj.reduce((acc, pv) => acc + pv.depth, 0) / 4, type: 'face', color: v.color, points: pVertsProj });
+}
+});
+if (v.id === "chopper") {
+let b1 = project({x: v.x + Math.sin(v.rotorAngle)*11, y: v.y + v.h + 0.2, z: v.z + Math.cos(v.rotorAngle)*11});
+let b2 = project({x: v.x - Math.sin(v.rotorAngle)*11, y: v.y + v.h + 0.2, z: v.z - Math.cos(v.rotorAngle)*11});
+if (b1 && b2) queue.push({ depth: (b1.depth + b2.depth)/2, type: 'line', color: '#ffffff', width: 3, p1: b1, p2: b2 });
+}
+});
+// Draw Police Bots
+policeUnits.forEach(p => {
+let copVerts = makeCubeVertices(1.8, 3.6, 1.8, p.x, 1.8, p.z);
+faceIndexes.forEach(f => {
+let cpProj = f.map(vIdx => project(copVerts[vIdx]));
+if (cpProj.every(pv => pv !== null)) {
+queue.push({ depth: cpProj.reduce((acc, pv) => acc + pv.depth, 0) / 4, type: 'face', color: '#ff0055', points: cpProj });
+}
+});
+});
+// Draw Police Tracer Bullet Lines
+policeBullets.forEach(b => {
+let p1 = project({x: b.x, y: b.y, z: b.z});
+let p2 = project({x: b.x - b.vx * 1.5, y: b.y, z: b.z - b.vz * 1.5});
+if (p1 && p2) queue.push({ depth: (p1.depth + p2.depth)/2, type: 'line', color: '#ff1744', width: 4, p1: p1, p2: p2 });
+});
+// Depth Buffer sorting rendering mechanics
+queue.sort((a, b) => b.depth - a.depth);
+queue.forEach(item => {
+if (item.type === 'line') {
+ctx.strokeStyle = item.color; ctx.lineWidth = item.width; ctx.beginPath();
+ctx.moveTo(item.p1.x, item.p1.y); ctx.lineTo(item.p2.x, item.p2.y); ctx.stroke();
+} else if (item.type === 'face') {
+ctx.fillStyle = item.color; ctx.strokeStyle = '#000000'; ctx.lineWidth = 1; ctx.beginPath();
+ctx.moveTo(item.points.x, item.points.y);
+for(let i=1; i<item.points.length; i++) ctx.lineTo(item.points[i].x, item.points[i].y);
+ctx.closePath(); ctx.fill(); ctx.stroke();
+}
+});
+let nearBld = false; activeTarget = null;
+cityBuildings.forEach(b => {
+if (Math.sqrt(Math.pow(player.x - b.x, 2) + Math.pow(player.z - b.z, 2)) < 18) { nearBld = true; activeTarget = b; }
+});
+let prompt = "";
+if (nearBld && !activeVehicle) {
+if (activeTarget === hospitalLocation) prompt = "[E] ENTER HOSPITAL CLINIC AREA";
+else prompt = activeTarget.hasBag ? [E] ENTER ROOMS (💰 MONEY BAG DETECTED) : [E] ROB REGISTER CASHOUT MATRIX;
+} else if (!activeVehicle) {
+vehicles.forEach(v => {
+if (Math.sqrt(Math.pow(player.x - v.x, 2) + Math.pow(player.z - v.z, 2)) < 10) prompt = [F] DRIVE ${v.name.toUpperCase()};
+});
+} else {
+prompt = [F] JUMP OUT OF VEHICLE;
+}
+document.getElementById("action-prompt").style.display = prompt !== "" ? "block" : "none";
+document.getElementById("action-prompt").innerText = prompt;
+// Sync User interface elements
+document.getElementById("cash").innerText = cash;
+document.getElementById("stars").innerText = wantedStars > 0 ? "★".repeat(wantedStars) : "Clear";
+document.getElementById("health-bar").style.width = ${health}%;
+let area = player.z < 0 ? "QUEENSLAND DISTRICT" : "VICTORIA COMMERCE SECTOR";
+if (player.x > 110) area = "AUSTRALIAN OCEAN CHANNELS";
+document.getElementById("region").innerText = area;
+document.getElementById("state").innerText = activeVehicle ? Driving ${activeVehicle.name} : "On Foot (Walking)";
+drawMinimap();
+}
+frame();
+
