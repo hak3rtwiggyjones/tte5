@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>tte 5: Ultra Graphics Edition</title>
+    <title>tte 5: Master Sandbox Engine</title>
     <style>
         body {
             margin: 0;
@@ -16,51 +16,48 @@
             position: absolute;
             top: 25px;
             left: 25px;
-            background: rgba(10, 10, 15, 0.85);
-            backdrop-filter: blur(10px);
+            background: rgba(10, 10, 15, 0.9);
             padding: 20px;
             border-radius: 12px;
-            border: 1px solid rgba(255, 204, 0, 0.3);
+            border: 1px solid #ffcc00;
             color: white;
             box-shadow: 0 10px 30px rgba(0,0,0,0.8);
             pointer-events: none;
             z-index: 10;
         }
         .stat {
-            font-size: 16px;
+            font-size: 14px;
             text-transform: uppercase;
             letter-spacing: 1px;
+            margin-bottom: 6px;
+        }
+        #health-bar-container {
+            width: 100%;
+            height: 10px;
+            background: #441111;
+            border-radius: 3px;
             margin-bottom: 8px;
-            color: #ccc;
+            overflow: hidden;
         }
-        .stat span {
-            font-weight: bold;
-            color: #fff;
+        #health-bar {
+            width: 100%;
+            height: 100%;
+            background: #ff3333;
+            transition: width 0.1s ease;
         }
-        #stars {
-            color: #ff3333 !important;
-            text-shadow: 0 0 12px #ff3333;
-        }
+        #stars { color: #ff3333; font-weight: bold; }
         #crosshair {
             position: absolute;
             top: 50%;
             left: 50%;
-            width: 24px;
-            height: 24px;
+            width: 20px;
+            height: 20px;
             transform: translate(-50%, -50%);
-            border: 2px solid rgba(0, 255, 100, 0.8);
+            border: 2px solid #00ff66;
             border-radius: 50%;
             pointer-events: none;
             z-index: 10;
         }
-        #crosshair::before, #crosshair::after {
-            content: '';
-            position: absolute;
-            background: rgba(0, 255, 100, 0.8);
-        }
-        #crosshair::before { top: 11px; left: -8px; width: 40px; height: 2px; }
-        #crosshair::after { top: -8px; left: 11px; width: 2px; height: 40px; }
-
         #action-prompt {
             position: absolute;
             top: 70%;
@@ -68,181 +65,206 @@
             transform: translate(-50%, -50%);
             background: #ffcc00;
             color: black;
-            padding: 14px 30px;
-            border-radius: 8px;
+            padding: 12px 25px;
+            border-radius: 6px;
             font-weight: bold;
-            font-size: 16px;
-            letter-spacing: 1px;
             display: none;
-            box-shadow: 0 0 25px rgba(255,204,0,0.5);
-            pointer-events: none;
             z-index: 10;
+        }
+        #canvas3d {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+        }
+        #minimap {
+            position: absolute;
+            bottom: 25px;
+            left: 25px;
+            width: 160px;
+            height: 160px;
+            background: rgba(15, 15, 25, 0.85);
+            border: 3px solid #ffcc00;
+            border-radius: 50%; 
+            box-shadow: 0 10px 25px rgba(0,0,0,0.9);
+            z-index: 10;
+        }
+        #hud-helper {
+            position: absolute;
+            bottom: 25px;
+            right: 25px;
+            background: rgba(0,0,0,0.85);
+            color: #fff;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: 13px;
+            z-index: 10;
+            pointer-events: none;
+            border: 1px solid #333;
+            line-height: 1.5;
         }
     </style>
 </head>
 <body>
 
     <div id="ui-layer">
-        <div class="stat">📍 District: <span id="region">VIC</span></div>
-        <div class="stat">💰 Wallet: $<span><span id="cash">500</span></span></div>
+        <div class="stat">❤️ Integrity (Health)</div>
+        <div id="health-bar-container"><div id="health-bar"></div></div>
+        <div class="stat">📍 Area: <span id="region">VIC SECTOR</span></div>
+        <div class="stat">💰 Cash Assets: $<span id="cash">500</span></div>
         <div class="stat">⭐ Wanted: <span id="stars">Clear</span></div>
-        <div class="stat">🚗 Vehicle: <span id="vehicle">Holden 3D</span></div>
+        <div class="stat">🚶 State: <span id="state">On Foot</span></div>
     </div>
 
     <div id="crosshair"></div>
     <div id="action-prompt">PRESS [E] TO INTERACT</div>
+    
+    <div id="hud-helper">
+        🎮 <strong>tte 5: Master Sandbox Engine Manual</strong><br>
+        • [F] Enter / Exit vehicles when close<br>
+        • [E] Enter 70% Building Rooms / Collect Hidden $500 Money Bags<br>
+        • 🏍️ <strong>Motorbike:</strong> Hold [Shift] to pull a controllable wheelie!<br>
+        • 🚁 <strong>Helicopter:</strong> Hold [Space] to Fly Up | [Ctrl] to Fly Down<br>
+        • 🚨 Committing actions spawns armed tactical response patrols!
+    </div>
 
-    <!-- Swapped to jsDelivr CDN which is standard, fast, and does not block Mac browsers -->
-    <script src="https://jsdelivr.net"></script>
+    <canvas id="canvas3d"></canvas>
+    <canvas id="minimap" width="160" height="160"></canvas>
 
     <script>
-        // Start game immediately as script loads smoothly from jsDelivr
-        initGame();
+        const canvas = document.getElementById("canvas3d");
+        const ctx = canvas.getContext("2d");
+        const mCanvas = document.getElementById("minimap");
+        const mCtx = mCanvas.getContext("2d");
 
-        function initGame() {
-            // --- 1. ENGINE & GRAPHICS SETUP ---
-            const scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x020208);
-            scene.fog = new THREE.FogExp2(0x020208, 0.008);
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resize);
+        resize();
 
-            const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-            const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.shadowMap.enabled = true;
-            renderer.shadowMap.type = THREE.PCFSoftShadowMap; 
-            renderer.toneMapping = THREE.ACESFilmicToneMapping; 
-            renderer.toneMappingExposure = 1.0;
-            document.body.appendChild(renderer.domElement);
+        // --- GAME CORE STATES ---
+        let cash = 500, wantedStars = 0, health = 100, activeTarget = null;
+        let activeVehicle = null; 
+        let player = { x: 0, y: 0, z: 20, angle: 0, speed: 1.2 };
+        
+        let vehicles = [
+            { id: "car", type: "Car", name: "Holden GTS", x: -25, y: 0, z: 30, speed: 0, maxSpeed: 3.5, accel: 0.08, decel: 0.04, angle: 0, turn: 0.045, color: "#d32f2f", w: 4.5, h: 1.5, d: 8.5 },
+            { id: "bike", type: "Motorbike", name: "Aussie Dirt Bike", x: 25, y: 0, z: 30, speed: 0, maxSpeed: 3.8, accel: 0.12, decel: 0.05, angle: 0, turn: 0.055, color: "#ffcc00", w: 1.5, h: 2.0, d: 5.5, wheeliePitch: 0 },
+            { id: "chopper", type: "Helicopter", name: "PolAir Chopper", x: 0, y: 0, z: -50, speed: 0, maxSpeed: 4.0, accel: 0.06, decel: 0.02, angle: 0, turn: 0.035, color: "#1a237e", w: 5.0, h: 4.0, d: 12.0, rotorAngle: 0 },
+            { id: "boat", type: "Boat", name: "Coast Patrol Boat", x: 125, y: -0.2, z: 40, speed: 0, maxSpeed: 3.2, accel: 0.05, decel: 0.02, angle: 0, turn: 0.030, color: "#ffffff", w: 5.5, h: 1.8, d: 11.0 }
+        ];
 
-            const ambient = new THREE.AmbientLight(0x1a1a2e, 0.7);
-            scene.add(ambient);
+        let cops = []; // Active tactical police entities
+        let cityBuildings = [];
+        const hospitalLocation = { name: "Melbourne General Hospital", color: "#ffffff", glow: "#ff3333", x: 40, z: 120, enterable: true, hasBag: false };
 
-            const sunLight = new THREE.DirectionalLight(0xffeebb, 1.2);
-            sunLight.position.set(80, 120, 50);
-            sunLight.castShadow = true;
-            sunLight.shadow.mapSize.width = 2048; 
-            sunLight.shadow.mapSize.height = 2048;
-            sunLight.shadow.bias = -0.0005;
-            scene.add(sunLight);
+        // --- PROCEDURAL ARCHITECTURE SEED ENGINES ---
+        function generateCityGrid() {
+            cityBuildings = [];
+            cityBuildings.push(hospitalLocation);
 
-            // --- 2. HIGH-RES GROUND MAP ---
-            const mapSize = 500;
-            const qldMat = new THREE.MeshStandardMaterial({ color: 0x143317, roughness: 0.7, metalness: 0.1 });
-            const qldFloor = new THREE.Mesh(new THREE.PlaneGeometry(mapSize, mapSize/2), qldMat);
-            qldFloor.rotation.x = -Math.PI / 2; qldFloor.position.z = -mapSize/4; qldFloor.receiveShadow = true;
-            scene.add(qldFloor);
+            // Populate 24 distinct infrastructure grid sections across QLD and VIC
+            for (let i = 0; i < 24; i++) {
+                let x = ((i % 5) - 2) * 55;
+                let z = (Math.floor(i / 5) - 2) * 60;
+                if (Math.abs(x - 40) < 25 && Math.abs(z - 120) < 25) continue; // Boundary clip buffer around medical zones
 
-            const vicMat = new THREE.MeshStandardMaterial({ color: 0x111113, roughness: 0.4, metalness: 0.3 });
-            const vicFloor = new THREE.Mesh(new THREE.PlaneGeometry(mapSize, mapSize/2), vicMat);
-            vicFloor.rotation.x = -Math.PI / 2; vicFloor.position.z = mapSize/4; vicFloor.receiveShadow = true;
-            scene.add(vicFloor);
+                let isEnterable = Math.random() < 0.70; // 70% accessibility index matrix constraint
 
-            // --- 3. HIGH-GRAPHICS SPORTS CAR CHASSIS ---
-            const carGroup = new THREE.Group();
-            const bodyMat = new THREE.MeshStandardMaterial({ color: 0xb71c1c, roughness: 0.15, metalness: 0.85 });
-            const carBody = new THREE.Mesh(new THREE.BoxGeometry(4.2, 1.2, 8.5), bodyMat);
-            carBody.position.y = 0.9; carBody.castShadow = true; carBody.receiveShadow = true;
-            carGroup.add(carBody);
+                cityBuildings.push({
+                    name: isEnterable ? `City Complex Block #${100 + i} (Accessible)` : `Skyscraper Structure #${100 + i}`,
+                    color: isEnterable ? "#2c3e50" : "#1a1a24",
+                    glow: isEnterable ? "#3498db" : "#2c3e50",
+                    x: x, z: z,
+                    enterable: isEnterable,
+                    hasBag: false
+                });
+            }
+            randomiseMoneyBags();
+        }
 
-            const glassMat = new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 0.05, metalness: 0.95 });
-            const carCabin = new THREE.Mesh(new THREE.BoxGeometry(3.6, 1.1, 4.2), glassMat);
-            carCabin.position.set(0, 1.8, -0.4); carCabin.castShadow = true;
-            carGroup.add(carCabin);
+        function randomiseMoneyBags() {
+            cityBuildings.forEach(b => b.hasBag = false);
+            let enterableRooms = cityBuildings.filter(b => b.enterable && b !== hospitalLocation);
+            let bagsToHide = Math.min(8, enterableRooms.length);
+            for (let i = 0; i < bagsToHide; i++) {
+                let randIdx = Math.floor(Math.random() * enterableRooms.length);
+                enterableRooms[randIdx].hasBag = true;
+            }
+        }
 
-            const wheelMat = new THREE.MeshStandardMaterial({ color: 0x0a0a0a, roughness: 0.5 });
-            const wheelPositions = [[-2.2, 0.6, 2.6], [2.2, 0.6, 2.6], [-2.2, 0.6, -2.6], [2.2, 0.6, -2.6]];
-            wheelPositions.forEach(pos => {
-                const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.65, 0.65, 0.8, 24), wheelMat);
-                wheel.rotation.z = Math.PI / 2; wheel.position.set(pos, pos, pos);
-                wheel.castShadow = true; carGroup.add(wheel);
+        function triggerHospitalRespawn() {
+            alert("💥 WASTED! Your health hit zero. You have been treated and revived at Melbourne General Hospital...");
+            activeVehicle = null;
+            
+            // Relocate position nodes back to hospital access doors
+            player.x = hospitalLocation.x;
+            player.y = 0;
+            player.z = hospitalLocation.z + 14;
+            player.angle = 0;
+            
+            health = 100;
+            wantedStars = 0;
+            cops = []; // Evaporate tracking units on respawn
+
+            randomiseMoneyBags(); // Shuffle financial items
+        }
+
+        function spawnCopPatrol() {
+            let spawnAngle = Math.random() * Math.PI * 2;
+            let spawnDist = 80;
+            cops.push({
+                x: player.x + Math.sin(spawnAngle) * spawnDist,
+                z: player.z + Math.cos(spawnAngle) * spawnDist,
+                speed: 0.9,
+                fireCooldown: 0
             });
+        }
 
-            carGroup.position.set(0, 0, 40);
-            scene.add(carGroup);
+        generateCityGrid();
 
-            // --- 4. ADVANCED BUILDINGS & URBAN STRUCTURES ---
-            const venues = [];
-            function buildStructure(name, color, glow, x, z) {
-                const group = new THREE.Group();
-                const bldGeo = new THREE.BoxGeometry(26, 18, 26);
-                const bldMat = new THREE.MeshStandardMaterial({ color: color, roughness: 0.3, metalness: 0.4 });
-                const mainBld = new THREE.Mesh(bldGeo, bldMat);
-                mainBld.position.y = 9; mainBld.castShadow = true; mainBld.receiveShadow = true;
-                group.add(mainBld);
+        let camAngleX = 0, camAngleY = 0.4;
+        const keys = {};
 
-                const neonMat = new THREE.MeshStandardMaterial({ emissive: glow, emissiveIntensity: 2.5 });
-                const neonTrim = new THREE.Mesh(new THREE.BoxGeometry(27, 1.5, 27), neonMat);
-                neonTrim.position.y = 17;
-                group.add(neonTrim);
-
-                group.position.set(x, 0, z);
-                scene.add(group);
-                venues.push({ name: name, x: x, z: z, radius: 24 });
+        // --- KEYBOARD & MOUSE EVENT INTERFACE LOOPS ---
+        window.addEventListener('keydown', e => {
+            keys[e.key.toLowerCase()] = true;
+            
+            if (e.key.toLowerCase() === 'e' && activeTarget) {
+                if (activeTarget.enterable) {
+                    if (activeTarget.hasBag) {
+                        cash += 500; activeTarget.hasBag = false;
+                        alert(`💼 LOOT SECURED! You swept the interior of ${activeTarget.name} and recovered a hidden cash bag worth $500!`);
+                    } else {
+                        alert(`Inside Interior: ${activeTarget.name}.\nRooms are clear. No hidden assets found inside this wing.`);
+                    }
+                }
             }
 
-            buildStructure("The Vanilla Unicorn (Strip Club)", 0x221122, 0xff00ff, -50, -60); 
-            buildStructure("Melbourne Ammu-Nation Arsenal", 0x222222, 0xff3300, 60, 90);   
-            buildStructure("7-Eleven Retail Hub", 0x112211, 0x00ff66, -70, 70);           
-
-            // --- 5. DRIVING CONTROLS & DYNAMIC SYSTEMS ---
-            let cash = 500, wantedStars = 0, activeVenue = null;
-            let car = { speed: 0, maxSpeed: 2.8, accel: 0.06, decel: 0.03, angle: 0, turn: 0.038 };
-            const keys = {};
-
-            window.addEventListener('keydown', e => {
-                keys[e.key.toLowerCase()] = true;
-                if (e.key.toLowerCase() === 'e' && activeVenue) {
-                    cash += 500; wantedStars = Math.min(5, wantedStars + 1);
-                    alert(`🚨 Activity Confirmed inside ${activeVenue.name}!\nSecure asset payout achieved: +$500.`);
+            if (e.key.toLowerCase() === 'f') {
+                if (activeVehicle) {
+                    player.x = activeVehicle.x - activeVehicle.w * 1.5; player.y = 0; player.z = activeVehicle.z; player.angle = activeVehicle.angle;
+                    activeVehicle.speed = 0; activeVehicle = null;
+                } else {
+                    vehicles.forEach(v => {
+                        let d = Math.sqrt(Math.pow(player.x - v.x, 2) + Math.pow(player.z - v.z, 2));
+                        if (d < 10 && Math.abs(player.y - v.y) < 6) activeVehicle = v;
+                    });
                 }
-            });
-            window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
-
-            let camAngleX = 0, camAngleY = 0.25;
-            window.addEventListener('mousemove', e => {
-                if (document.pointerLockElement === document.body) {
-                    camAngleX -= e.movementX * 0.0025;
-                    camAngleY = Math.max(0.05, Math.min(0.8, camAngleY - e.movementY * 0.0025));
-                }
-            });
-            window.addEventListener('click', () => document.body.requestPointerLock());
-
-            // --- 6. MAIN ENGINE FRAME RENDERING TICK ---
-            function animate() {
-                requestAnimationFrame(animate);
-
-                if (keys['w'] || keys['arrowup']) car.speed = Math.min(car.maxSpeed, car.speed + car.accel);
-                else if (keys['s'] || keys['arrowdown']) car.speed = Math.max(-car.maxSpeed/2, car.speed - car.accel);
-                else {
-                    if (car.speed > 0) car.speed = Math.max(0, car.speed - car.decel);
-                    if (car.speed < 0) car.speed = Math.min(0, car.speed + car.decel);
-                }
-
-                if (keys['a'] || keys['arrowleft']) if(car.speed !== 0) car.angle += car.turn * (car.speed > 0 ? 1 : -1);
-                if (keys['d'] || keys['arrowright']) if(car.speed !== 0) car.angle -= car.turn * (car.speed > 0 ? 1 : -1);
-
-                carGroup.rotation.y = car.angle;
-Use code with caution.
-carGroup.position.x += Math.sin(car.angle) * car.speed;
-carGroup.position.z += Math.cos(car.angle) * car.speed;
-const targetCamOffset = new THREE.Vector3(Math.sin(camAngleX) * 22, camAngleY * 18, Math.cos(camAngleX) * 22);
-camera.position.copy(carGroup.position).add(targetCamOffset);
-camera.lookAt(carGroup.position.clone().add(new THREE.Vector3(0, 1.5, 0)));
-let nearVenue = false; activeVenue = null;
-for (let v of venues) {
-let d = Math.sqrt(Math.pow(carGroup.position.x - v.x, 2) + Math.pow(carGroup.position.z - v.z, 2));
-if (d < v.radius) { nearVenue = true; activeVenue = v; break; }
+            }
+        });
+window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+window.addEventListener('mousemove', e => {
+if (document.pointerLockElement === document.body) {
+camAngleX -= e.movementX * 0.005;
+camAngleY = Math.max(0.05, Math.min(1.2, camAngleY - e.movementY * 0.005));
 }
-document.getElementById("action-prompt").style.display = nearVenue ? "block" : "none";
-document.getElementById("cash").innerText = cash;
-document.getElementById("stars").innerText = wantedStars > 0 ? "★".repeat(wantedStars) : "Clear";
-document.getElementById("region").innerText = carGroup.position.z < 0 ? "QUEENSLAND DISTRICT" : "VICTORIA COMMERCE SECTOR";
-renderer.render(scene, camera);
-}
-window.addEventListener('resize', () => {
-camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix();
-renderer.setSize(window.innerWidth, window.innerHeight);
 });
-animate();
+window.addEventListener('click', () => {
+document.body.requestPointerLock();
+if (wantedStars === 0) {
+wantedStars = 1; // Discharging weapons sets a wanted tracking flag immediately
+alert("🚨 WEAPON DISCHARGED! Local police alerts active (+1 Wanted Star).");
 }
-
+});
