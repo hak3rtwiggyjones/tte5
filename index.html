@@ -92,14 +92,12 @@
     <div id="crosshair"></div>
     <div id="action-prompt">PRESS [E] TO INTERACT</div>
 
+    <!-- Swapped to jsDelivr CDN which is standard, fast, and does not block Mac browsers -->
+    <script src="https://jsdelivr.net"></script>
+
     <script>
-        // Load high-fidelity engine files dynamically
-        (function() {
-            var script = document.createElement('script');
-            script.src = 'https://unpkg.com';
-            script.onload = function() { initGame(); };
-            document.head.appendChild(script);
-        })();
+        // Start game immediately as script loads smoothly from jsDelivr
+        initGame();
 
         function initGame() {
             // --- 1. ENGINE & GRAPHICS SETUP ---
@@ -111,32 +109,29 @@
             const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.shadowMap.enabled = true;
-            renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Ultra soft smooth shadows
-            renderer.toneMapping = THREE.ACESFilmicToneMapping; // Cinematic lighting balance
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap; 
+            renderer.toneMapping = THREE.ACESFilmicToneMapping; 
             renderer.toneMappingExposure = 1.0;
             document.body.appendChild(renderer.domElement);
 
-            // Studio & Environmental Lighting Mix
             const ambient = new THREE.AmbientLight(0x1a1a2e, 0.7);
             scene.add(ambient);
 
             const sunLight = new THREE.DirectionalLight(0xffeebb, 1.2);
             sunLight.position.set(80, 120, 50);
             sunLight.castShadow = true;
-            sunLight.shadow.mapSize.width = 2048; // Crisp shadow textures
+            sunLight.shadow.mapSize.width = 2048; 
             sunLight.shadow.mapSize.height = 2048;
             sunLight.shadow.bias = -0.0005;
             scene.add(sunLight);
 
             // --- 2. HIGH-RES GROUND MAP ---
             const mapSize = 500;
-            // QLD Ground with rich green depth
             const qldMat = new THREE.MeshStandardMaterial({ color: 0x143317, roughness: 0.7, metalness: 0.1 });
             const qldFloor = new THREE.Mesh(new THREE.PlaneGeometry(mapSize, mapSize/2), qldMat);
             qldFloor.rotation.x = -Math.PI / 2; qldFloor.position.z = -mapSize/4; qldFloor.receiveShadow = true;
             scene.add(qldFloor);
 
-            // VIC Urban reflective asphalt ground
             const vicMat = new THREE.MeshStandardMaterial({ color: 0x111113, roughness: 0.4, metalness: 0.3 });
             const vicFloor = new THREE.Mesh(new THREE.PlaneGeometry(mapSize, mapSize/2), vicMat);
             vicFloor.rotation.x = -Math.PI / 2; vicFloor.position.z = mapSize/4; vicFloor.receiveShadow = true;
@@ -144,25 +139,21 @@
 
             // --- 3. HIGH-GRAPHICS SPORTS CAR CHASSIS ---
             const carGroup = new THREE.Group();
-            
-            // Highly reflective metallic car body paint material
             const bodyMat = new THREE.MeshStandardMaterial({ color: 0xb71c1c, roughness: 0.15, metalness: 0.85 });
             const carBody = new THREE.Mesh(new THREE.BoxGeometry(4.2, 1.2, 8.5), bodyMat);
             carBody.position.y = 0.9; carBody.castShadow = true; carBody.receiveShadow = true;
             carGroup.add(carBody);
 
-            // Smoked glass cabin matrix
             const glassMat = new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 0.05, metalness: 0.95 });
             const carCabin = new THREE.Mesh(new THREE.BoxGeometry(3.6, 1.1, 4.2), glassMat);
             carCabin.position.set(0, 1.8, -0.4); carCabin.castShadow = true;
             carGroup.add(carCabin);
 
-            // Glossy black rims and performance rubber wheels
             const wheelMat = new THREE.MeshStandardMaterial({ color: 0x0a0a0a, roughness: 0.5 });
             const wheelPositions = [[-2.2, 0.6, 2.6], [2.2, 0.6, 2.6], [-2.2, 0.6, -2.6], [2.2, 0.6, -2.6]];
             wheelPositions.forEach(pos => {
                 const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.65, 0.65, 0.8, 24), wheelMat);
-                wheel.rotation.z = Math.PI / 2; wheel.position.set(pos[0], pos[1], pos[2]);
+                wheel.rotation.z = Math.PI / 2; wheel.position.set(pos, pos, pos);
                 wheel.castShadow = true; carGroup.add(wheel);
             });
 
@@ -179,7 +170,6 @@
                 mainBld.position.y = 9; mainBld.castShadow = true; mainBld.receiveShadow = true;
                 group.add(mainBld);
 
-                // High-intensity emissive neon structural lights
                 const neonMat = new THREE.MeshStandardMaterial({ emissive: glow, emissiveIntensity: 2.5 });
                 const neonTrim = new THREE.Mesh(new THREE.BoxGeometry(27, 1.5, 27), neonMat);
                 neonTrim.position.y = 17;
@@ -190,10 +180,9 @@
                 venues.push({ name: name, x: x, z: z, radius: 24 });
             }
 
-            // Map Locations
-            buildStructure("The Vanilla Unicorn (Strip Club)", 0x221122, 0xff00ff, -50, -60); // Pink neon theme
-            buildStructure("Melbourne Ammu-Nation Arsenal", 0x222222, 0xff3300, 60, 90);   // Red neon weapons depot
-            buildStructure("7-Eleven Retail Hub", 0x112211, 0x00ff66, -70, 70);           // Green neon commercial shop
+            buildStructure("The Vanilla Unicorn (Strip Club)", 0x221122, 0xff00ff, -50, -60); 
+            buildStructure("Melbourne Ammu-Nation Arsenal", 0x222222, 0xff3300, 60, 90);   
+            buildStructure("7-Eleven Retail Hub", 0x112211, 0x00ff66, -70, 70);           
 
             // --- 5. DRIVING CONTROLS & DYNAMIC SYSTEMS ---
             let cash = 500, wantedStars = 0, activeVenue = null;
@@ -209,7 +198,6 @@
             });
             window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
 
-            // Third-Person Physics Camera Tracker setup
             let camAngleX = 0, camAngleY = 0.25;
             window.addEventListener('mousemove', e => {
                 if (document.pointerLockElement === document.body) {
@@ -223,31 +211,29 @@
             function animate() {
                 requestAnimationFrame(animate);
 
+                if (keys['w'] || keys['arrowup']) car.speed = Math.min(car.maxSpeed, car.speed + car.accel);
+                else if (keys['s'] || keys['arrowdown']) car.speed = Math.max(-car.maxSpeed/2, car.speed - car.accel);
+                else {
+                    if (car.speed > 0) car.speed = Math.max(0, car.speed - car.decel);
+                    if (car.speed < 0) car.speed = Math.min(0, car.speed + car.decel);
+                }
+
+                if (keys['a'] || keys['arrowleft']) if(car.speed !== 0) car.angle += car.turn * (car.speed > 0 ? 1 : -1);
+                if (keys['d'] || keys['arrowright']) if(car.speed !== 0) car.angle -= car.turn * (car.speed > 0 ? 1 : -1);
+
+                carGroup.rotation.y = car.angle;
 Use code with caution.
-// Powertrain Mechanics Calculations
-if (keys['w'] || keys['arrowup']) car.speed = Math.min(car.maxSpeed, car.speed + car.accel);
-else if (keys['s'] || keys['arrowdown']) car.speed = Math.max(-car.maxSpeed/2, car.speed - car.accel);
-else {
-if (car.speed > 0) car.speed = Math.max(0, car.speed - car.decel);
-if (car.speed < 0) car.speed = Math.min(0, car.speed + car.decel);
-}
-if (keys['a'] || keys['arrowleft']) if(car.speed !== 0) car.angle += car.turn * (car.speed > 0 ? 1 : -1);
-if (keys['d'] || keys['arrowright']) if(car.speed !== 0) car.angle -= car.turn * (car.speed > 0 ? 1 : -1);
-carGroup.rotation.y = car.angle;
 carGroup.position.x += Math.sin(car.angle) * car.speed;
 carGroup.position.z += Math.cos(car.angle) * car.speed;
-// Smooth Cinematic Target Camera Orbit tracking
 const targetCamOffset = new THREE.Vector3(Math.sin(camAngleX) * 22, camAngleY * 18, Math.cos(camAngleX) * 22);
 camera.position.copy(carGroup.position).add(targetCamOffset);
 camera.lookAt(carGroup.position.clone().add(new THREE.Vector3(0, 1.5, 0)));
-// Structural Proximity Scanning
 let nearVenue = false; activeVenue = null;
 for (let v of venues) {
 let d = Math.sqrt(Math.pow(carGroup.position.x - v.x, 2) + Math.pow(carGroup.position.z - v.z, 2));
 if (d < v.radius) { nearVenue = true; activeVenue = v; break; }
 }
 document.getElementById("action-prompt").style.display = nearVenue ? "block" : "none";
-// Sync Performance Interface Display
 document.getElementById("cash").innerText = cash;
 document.getElementById("stars").innerText = wantedStars > 0 ? "★".repeat(wantedStars) : "Clear";
 document.getElementById("region").innerText = carGroup.position.z < 0 ? "QUEENSLAND DISTRICT" : "VICTORIA COMMERCE SECTOR";
